@@ -1,0 +1,175 @@
+:-use_module(library(lists)).
+
+%Solve the maze
+solve(Maze, R, C):-
+    path([[0,-1, 0]], [], Maze, R, C). %[current Position, last Position before current, number of collected diamonds]
+
+%In case of the first position which is 1 there is no position before
+%so I put it 0 as a base case
+
+
+path([],_,_,_,_):-
+    write("Solution Not Found"),!.
+
+path([[P,LP,D] | _], Done, Maze , R, C):-
+    check(P,R,C),
+    write("Solution Found"),nl,
+    write("Number of collected diamonds is "),
+    write(D),nl,
+    write("Number of visted notes is "),
+    numberofnodes(Done,Cnt),
+    write(Cnt),nl,
+    drawpath(P, LP, Done, Maze, Nmaze),
+    print(Nmaze, 0, C).
+
+path(Open, Done, Maze, R, C):-
+    removeCurrent(Open, P, LP, D, Rest),
+    getChildern(Maze, R, C, P, D, Open, Done, Childern),
+    bubbleSort(Childern, 0, NChildern),
+    add(NChildern, Rest, NewOpen),
+    path(NewOpen, [[P,LP] | Done], Maze, R, C).
+
+
+%To check that you reach the exit
+check(P,C,R):-
+    P =:= R*C-1.
+
+
+%To remove the current state
+removeCurrent([[P,LP,D] | Rest], P, LP, D, Rest).
+
+
+%To get Childern
+getChildern(Maze, R, C, P, D, Open, Done, Childern):-
+    bagof(NP, moves(Maze, R, C, P, D, Open, Done, NP), Childern), !.
+
+getChildern(_,_,_,_,_,_,_,[]).
+
+
+%Move in all direction "up, down, right, left"
+
+moves(Maze, R, C, P, D, Open, Done, [NP,P,ND]):-
+    move(Maze, R, C, P, NP),
+    \+ member([NP,_],Open),    %Check that I don't put it in to do list
+    \+ member([NP,_],Done),    %Check that I don't reach it before and open it
+    heuristic(NP, Maze, D, ND).
+
+
+move(Maze, _ , C, P, NP):-
+    up(Maze, C, P, NP).
+
+move(Maze, R, C, P, NP):-      %It contains the maze, #rows, #columns, Position, New Position
+    down(Maze, R, C, P, NP).
+
+move(Maze, _ , C, P, NP):-
+    right(Maze, C, P, NP).
+
+move(Maze, _ , C, P, NP):-
+    left(Maze, C, P, NP).
+
+
+%To move Up
+up(Maze, C, P, NP):-
+    P >= C,                %Not in the first row
+    NP is P-C,             %Move up
+    nth0(NP,Maze,V),       %Get the cell in this position
+    \+ V == '-'.           %Check that this cell is not a wall
+
+%To move down
+down(Maze, R, C, P, NP):-
+    NP is P+C,             %Move down
+    NP < R*C,              %Check that this cell is in the maze and not out side it
+    nth0(NP,Maze,V),       %Get the cell in this position
+    \+ V == '-'.           %Check that this cell is not a wall
+
+%To move right
+right(Maze, C, P, NP):-
+    NP is P+1,             %Move right
+    \+ 0 is NP mod C,      %Not in the last column
+    nth0(NP,Maze,V),       %Get the cell in this position
+    \+ V == '-'.           %Check that this cell is not a wall
+
+%To move Left
+left(Maze, C, P, NP):-
+    \+ 0 is P mod C,       %Not in the first column
+    NP is P-1,             %move left
+    nth0(NP,Maze,V),       %Get the cell in this position
+    \+ V == '-'.           %Check that this cell is not a wall
+
+%To sort list
+bubbleSort(L, 4, L):-!.
+
+bubbleSort(L, Cnt, R):-
+    NCnt is Cnt+1,
+    sortList(L, NL),
+    bubbleSort(NL, NCnt, R).
+
+sortList([],[]):-!.
+sortList([X],[X]):-!.
+
+sortList([[P1,LP1,D1],[P2,LP2,D2]|T],[[P1,LP1,D1] | R]):-
+    D1>D2,
+    sortList([[P2,LP2,D2]|T], R),!.
+
+sortList([[P1,LP1,D1],[P2,LP2,D2]|T],[[P2,LP2,D2] | R]):-
+    sortList([[P1,LP1,D1]|T], R).
+
+
+%To add in the Priority queue
+add([], Rest, Rest):-!.
+add([H|T], Rest, [H|NewOpen]):-
+    add(T, Rest, NewOpen).
+
+
+%To get number of nodes
+heuristic(NP, Maze, D, ND):-
+    nth0(NP,Maze,V),
+    V == 'D',
+    ND is D+1,!.
+
+heuristic(_, _, D, D).
+
+
+%To draw path on maze
+
+drawpath(P, -1, _ , Maze, R):-
+    replace(Maze, P, R),!.
+
+drawpath(P, LP, Done, Maze, NR):-
+    member([LP, LLP],Done),           %LLP is the last before the last
+    drawpath(LP, LLP, Done, Maze, R),
+    replace(R, P, NR).
+
+
+%To replace the char in Maze by X
+
+replace([_|T], 0, ['X' | T]) :- !.
+
+replace([H|T], P, [H|R]):-
+    NP is P-1,
+    replace(T, NP, R).
+
+
+%To print the solution
+
+print([], _ , _):-!.
+
+print([H|T], Ind, C):-
+    0 is Ind mod C, nl,
+    write(H),
+    NInd is Ind+1,
+    print(T, NInd, C),!.
+
+print([H|T], Ind, C):-
+    write(H),
+    NInd is Ind+1,
+    print(T, NInd, C),!.
+
+
+%To get number of visted nodes
+
+numberofnodes([],0):-!.
+
+numberofnodes([_|T],X):-
+    numberofnodes(T,NX),
+    X is NX+1.
